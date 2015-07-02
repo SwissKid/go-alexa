@@ -7,11 +7,13 @@ import (
         //"net/url"
         "fmt"
 	"io/ioutil"
-	"time"
-        //      "strconv"
+	"github.com/swisskid/go-insteon/insteon"
+	//"strings"
+              "strconv"
 )
 
 func main() {
+	insteon.PopulateAll()
         http.HandleFunc("/", foo)
         http.ListenAndServe(":9003", nil)
 }
@@ -79,10 +81,17 @@ type Reprompt struct {
     OutputSpeech		OutputSpeech	`json:"outputSpeech,omitempty"`
 }
 func foo(w http.ResponseWriter, r *http.Request) {
+	var l RequestMaster
+	var j ResponseMaster
+	var k OutputSpeech
 	body, _ := ioutil.ReadAll(r.Body)
 	fmt.Println(string(body[:]))
-	var l RequestMaster
 	json.Unmarshal(body, &l)
+	// For all responses
+	j.Version = "1.0"
+	k.Type = "PlainText"
+	j.Response.ShouldEndSession = true
+
 	if l.Request.Intent.Name != "" {
 	    fmt.Println("The name of the intent is " + l.Request.Intent.Name)
 	    fmt.Println(l.Request.Intent.Slots)
@@ -91,20 +100,58 @@ func foo(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(slot.Value)
 	    }
 	}
-	fmt.Println(l)
-	var j ResponseMaster
-	var k OutputSpeech
-	j.Version = "1.0"
-	k.Type = "PlainText"
-	k.Text = "I am a working response"
+	if l.Request.Intent.Name == "Lighting" { //Engage insteon subroutine
+	    var direction string
+	    var item string
+	    var n insteon.Command
+	    for _, slot := range l.Request.Intent.Slots {
+		if slot.Name == "Direction" {
+		    direction = slot.Value
+		    continue
+		}
+		if slot.Name == "Device" {
+		    item = slot.Value
+		}
+	    }
+	    n.Command = direction
+	    item_type, id, location := insteon.SearchString(item)
+	    fmt.Println(item_type + " ID = " + strconv.Itoa(id) + " Location " + strconv.Itoa(location))
+	    switch item_type{
+		case "device":
+		    n.Device_Id = id
+		    n.Level = insteon.DevList[location].DimLevel/254 * 100
+		    k.Text = "Turning " + item + " " + direction
+		case "scene":
+		    n.Scene_Id = id
+		    k.Text = "Turning " + item + " " + direction
+		case "room":
+		    fmt.Println("Rooms are a pain")
+		    k.Text = "Rooms are a pain, do it yourself"
+		case "not_found":
+		    k.Text = "The following device, scene, or room was not found: " + item
+	    }
+	    insteon.RunCommand(n)
+	} else {
+
+	    k.Text = "I am a working response"
+	}
+	if l.Request.Intent.Name == "Activate" { //Activate a scene
+	    var n insteon.Command
+	    n.Command = "on"
+	    scene_name := l.Request.Intent.Slots["Scene"].Value
+	    ret_type, scene_id, _ := insteon.SearchString(scene_name)
+	    if ret_type == "scene" {
+		n.Scene_Id = scene_id
+		insteon.RunCommand(n)
+		k.Text = "Turning the scene " + scene_name + " on"
+	    } else {
+		k.Text = "Failed to find scene " + scene_name 
+	    }
+	}
 	j.Response.OutputSpeech = &k
-	j.Response.ShouldEndSession = false //What happens if I leave it open
 	b, _ := json.Marshal(j)
 	fmt.Println(string(b[:]))
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("charset", "UTF-8")
-	w.Write(b)
-	time.Sleep(2)
-	fmt.Println("sending the second")
 	w.Write(b)
 }
