@@ -3,6 +3,9 @@ Quick go server to interact with Amazon Echo requests.
 
 Didn't deal with SSL, because I find it annoying. Proxying that bit through nginx to another port on my server. This handles and translates the Amazon Echo responses.
 
+#### Insteon Integration
+To make this work, you'll need my insteon library (and you'll need to update it with your API information for Insteon). You can get it with go get github.com/swisskid/go-insteon.
+
 #### Next Steps
 I should probably list some future goals
 * Best case matching for insteon - Search the phrase, look for something "close enough" and if it's too far, ask for another prompt
