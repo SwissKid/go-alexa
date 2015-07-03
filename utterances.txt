@@ -1,0 +1,28 @@
+Register Register me
+Register Register my insteon account
+Activate Activate {movies|Scene}
+Activate Active {Whole House|Scene}
+Activate Run {movies|Scene}
+Lighting Turn {Whole House|Device} {on|Direction}
+Lighting Turn {Whole House|Device} {off|Direction}
+Lighting Turn the {Whole House|Device} {on|Direction}
+Lighting Turn the {Whole House|Device} {off|Direction}
+Lighting Turn {off|Direction} the {Whole House|Device}
+Lighting Turn {on|Direction} the {Whole House|Device}
+Lighting Turn {Kitchen|Device} lights {off|Direction}
+Lighting Turn {Kitchen|Device} lights {on|Direction}
+Lighting Turn {Bedroom Lamp|Device} {off|Direction}
+Lighting Turn {Bedroom|Device} {off|Direction}
+Lighting Turn the {Kitchen|Device} {off|Direction}
+Lighting Turn the {Kitchen|Device} lights {off|Direction}
+Lighting Turn {off|Direction} the {Kitchen|Device} lights
+Lighting Turn {on|Direction} the {Kitchen|Device} lights
+Lighting Turn {on|Direction} the {Bedroom Lamp|Device}
+Lighting Turn {off|Direction} the {Bedroom Lamp|Device}
+Lighting Turn {off|Direction} the {Kitchen|Device}
+Lighting Turn the {Media Room|Device} light {on|Direction}
+Lighting Turn the {Media Room|Device} lights {on|Direction}
+Lighting Turn the {Media Room|Device} {off|Direction}
+Lighting Turn the {Media Room|Device} {on|Direction}
+Lighting Turn {on|Direction} the {Media Room|Device} 
+Lighting Turn {Movies|Device} {on|Direction}

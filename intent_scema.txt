@@ -1,0 +1,28 @@
+{
+  "intents": [
+    {
+      "intent": "Lighting",
+      "slots": [
+        {
+          "name": "Device",
+          "type": "LITERAL"
+        },
+        {
+          "name": "Direction",
+          "type": "LITERAL"
+        }
+      ]
+    },
+    {
+      "intent": "Activate",
+      "slots": [
+{ "name": "Scene",
+  "type": "LITERAL"}
+       ]
+    },
+    {
+      "intent": "Register",
+      "slots": []
+    }
+  ]
+}
