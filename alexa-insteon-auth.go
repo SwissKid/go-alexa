@@ -199,7 +199,7 @@ func foo(w http.ResponseWriter, r *http.Request) {
 			case "not_found":
 				k.Text = "The following device, scene, or room was not found: " + item
 			}
-			insteon.RunCommand(n)
+			go insteon.RunCommand(n) //Forking since i don't error check
 		case "Activate":
 			fmt.Println(insteon.Access_Token + " is the accesss token")
 			var n insteon.Command
@@ -208,7 +208,7 @@ func foo(w http.ResponseWriter, r *http.Request) {
 			ret_type, scene_id, _ := insteon.SearchString(scene_name)
 			if ret_type == "scene" {
 				n.Scene_Id = scene_id
-				insteon.RunCommand(n)
+				go insteon.RunCommand(n) // Forking it because I am not error checking anyway
 				k.Text = "Turning the scene " + scene_name + " on"
 			} else {
 				k.Text = "Failed to find scene " + scene_name
