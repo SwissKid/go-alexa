@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	//"net/url"
+	"github.com/jeffsmith82/gofuzzy"
 	//"strings"
 	"./secrets"
 	"strconv"
@@ -19,14 +20,48 @@ var Accounts map[string]Acc_Info
 var AccDevs map[string][]insteon.Device
 var AccScenes map[string][]insteon.Scene
 var AccRooms map[string][]insteon.Room
+var FuzzNames map[string][]FuzzyName
+//gofuzzy.Soundex("Robert")
 
 func main() {
 	Accounts = make(map[string]Acc_Info)
 	AccDevs = make(map[string][]insteon.Device)
 	AccScenes = make(map[string][]insteon.Scene)
 	AccRooms = make(map[string][]insteon.Room)
+	FuzzNames = make(map[string][]FuzzyName)
 	http.HandleFunc("/", foo)
 	http.ListenAndServe(":9003", nil)
+}
+
+func MakeFuzzy(userid string){
+    for i, x := range AccScenes[userid] {
+	var n FuzzyName
+	n.Fuzz, _ = gofuzzy.Soundex(x.SceneName)
+	n.Kind = "scene"
+	n.Place = i
+	FuzzNames[userid] = append(FuzzNames[userid], n)
+    }
+    for i, x := range AccDevs[userid] {
+	var n FuzzyName
+	n.Fuzz, _ = gofuzzy.Soundex(x.DeviceName)
+	n.Kind = "device"
+	n.Place = i
+	FuzzNames[userid] = append(FuzzNames[userid], n)
+    }
+    for i, x := range AccRooms[userid] {
+	var n FuzzyName
+	n.Fuzz, _ = gofuzzy.Soundex(x.RoomName)
+	n.Kind = "room"
+	n.Place = i
+	FuzzNames[userid] = append(FuzzNames[userid], n)
+    }
+    fmt.Println(FuzzNames[userid])
+}
+
+type FuzzyName struct {
+    Fuzz	string
+    Kind	string
+    Place	int
 }
 
 type Acc_Info struct {
@@ -134,6 +169,8 @@ func foo(w http.ResponseWriter, r *http.Request) {
 	case "Lighting", "Activate", "Deactivate":
 		fmt.Println(Accounts)
 		fmt.Println("PreIF")
+		fmt.Println("Gonna make fuzzy")
+		MakeFuzzy(userid)
 		if val, ok := Accounts[userid]; ok {
 			fmt.Println("I'm going into the IF")
 			insteon.Access_Token = val.Access_Token
@@ -163,6 +200,7 @@ func foo(w http.ResponseWriter, r *http.Request) {
 				AccScenes[userid] = insteon.SceneList
 				AccRooms[userid] = insteon.RoomList
 				Accounts[userid] = val2
+				MakeFuzzy(userid)
 				fmt.Println("Post assignment")
 				fmt.Println(insteon.Access_Token)
 				fmt.Println(Accounts)
@@ -184,15 +222,34 @@ func foo(w http.ResponseWriter, r *http.Request) {
 			}
 			n.Command = direction
 			item_type, id, location := insteon.SearchString(item)
+			if item_type == "not_found" {
+			    s, _ := gofuzzy.Soundex(item)
+			    for _, x := range FuzzNames[userid]{ 
+				if x.Fuzz == s {
+				    item_type = x.Kind
+				    location = x.Place
+				    switch item_type {
+					case"device":
+						id = AccDevs[userid][location].DeviceID
+					case"scene":
+						id = AccScenes[userid][location].SceneID
+					case"room":
+						id = AccRooms[userid][location].RoomID
+				    }
+				    fmt.Println("Found with fuzzy")
+				    break
+				}
+			    }
+			}
 			fmt.Println(item_type + " ID = " + strconv.Itoa(id) + " Location " + strconv.Itoa(location))
 			switch item_type {
 			case "device":
 				n.Device_Id = id
 				n.Level = insteon.DevList[location].DimLevel / 254 * 100
-				k.Text = "Turning " + item + " " + direction
+				k.Text = "Turning " + insteon.DevList[location].DeviceName + " " + direction
 			case "scene":
 				n.Scene_Id = id
-				k.Text = "Turning " + item + " " + direction
+				k.Text = "Turning " + insteon.SceneList[location].SceneName + " " + direction
 			case "room":
 				fmt.Println("Rooms are a pain")
 				k.Text = "Rooms are a pain, do it yourself"
