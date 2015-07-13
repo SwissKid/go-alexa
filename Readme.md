@@ -19,6 +19,7 @@ I should probably list some future goals
 * ~~Best case matching for insteon - Search the phrase, look for something "close enough" and if it's too far, ask for another prompt~~
 * Actually follow amazon's rules for who can control it - checking date, source, certificate
 * Doing SSL in the Go library - I bet this wouldn't even be that hard. I'm just lazy.
+* Handle it differently if I can't contact the Insteon controller. "Please re-register your insteon connection" maybe?
 * ~~Doing tie-ins with insteon - Don't know how I'd do this yet, maybe give each person a key that they'd have to enter on my site to tie their username to a echo app? dunno.~~
 
 
