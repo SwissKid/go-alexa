@@ -1,19 +1,17 @@
 package main
 
 import (
-	//      "io"
-	"bytes"
+//	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/swisskid/go-insteon/insteon"
 	"io/ioutil"
-	"log"
+//	"log"
 	"net/http"
-	//"net/url"
 	"github.com/jeffsmith82/gofuzzy"
-	//"strings"
-	"./secrets"
+//	"./secrets"
 	"strconv"
+	"time"
 )
 
 var Accounts map[string]Acc_Info
@@ -21,7 +19,6 @@ var AccDevs map[string][]insteon.Device
 var AccScenes map[string][]insteon.Scene
 var AccRooms map[string][]insteon.Room
 var FuzzNames map[string][]FuzzyName
-//gofuzzy.Soundex("Robert")
 
 func main() {
 	Accounts = make(map[string]Acc_Info)
@@ -66,8 +63,7 @@ type FuzzyName struct {
 
 type Acc_Info struct {
 	Amazon       string
-	Access_Token string
-	Refresh      string
+	Time         time.Time
 }
 
 //Request Fields
@@ -89,6 +85,7 @@ type Application struct {
 }
 type User struct {
 	UserId string
+	AccessToken string
 }
 type Request struct { //I have to combine all the different requests into this. ugh.
 	Type      string `json:"type"` //LaunchRequest,IntentRequest,SessionEndedRequest
@@ -106,7 +103,6 @@ type Slot struct {
 	Value string `json:"value"`
 }
 
-var Account_Location = "/srv/alexa/accounts/"
 
 //Response Fields
 type ResponseMaster struct {
@@ -146,7 +142,9 @@ func foo(w http.ResponseWriter, r *http.Request) {
 	k.Type = "PlainText"
 	j.Response.ShouldEndSession = true
 	userid := l.Session.User.UserId
-	client_id := insteon.Client_Id
+	accessToken := l.Session.User.AccessToken
+	insteon.Access_Token = accessToken
+	//client_id := insteon.Client_Id
 	if l.Request.Intent.Name != "" {
 		fmt.Println("The name of the intent is " + l.Request.Intent.Name)
 		fmt.Println(l.Request.Intent.Slots)
@@ -156,55 +154,32 @@ func foo(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	switch l.Request.Intent.Name {
-	case "Register":
-		var m Card
-		long_url := "http://connect.insteon.com/api/v2/oauth2/auth?client_id=" + client_id + "&state=" + userid + "&response_type=code&redirect_uri=http://veryoblivio.us:9001/"
-		short_url := ShortenURL(long_url)
-		m.Type = "Simple"
-		m.Title = "Register your Insteon Connection"
-		m.Content = short_url
-		j.Response.Card = &m
-		k.Text = "Please follow the link on the card to sign into your insteon account"
-		break
 	case "Lighting", "Activate", "Deactivate":
 		fmt.Println(Accounts)
 		fmt.Println("PreIF")
 		fmt.Println("Gonna make fuzzy")
 		MakeFuzzy(userid)
-		if val, ok := Accounts[userid]; ok {
-			fmt.Println("I'm going into the IF")
-			insteon.Access_Token = val.Access_Token
+		if accessToken != "" {
+			fmt.Println("Access Token Present")
+			if (time.Since(Accounts[userid].Time) > 1 * time.Hour){
+			    fmt.Println("Repopulating")
+			    insteon.PopulateAll()
+			    AccDevs[userid] = insteon.DevList
+			    AccScenes[userid] = insteon.SceneList
+			    AccRooms[userid] = insteon.RoomList
+			    var tmpacc Acc_Info
+			    tmpacc.Amazon=userid
+			    tmpacc.Time=time.Now()
+			    Accounts[userid] = tmpacc
+			    MakeFuzzy(userid)
+			}
+
 			insteon.DevList = AccDevs[userid]
 			insteon.SceneList = AccScenes[userid]
 			insteon.RoomList = AccRooms[userid]
-			fmt.Println("Post assignment")
 			fmt.Println(insteon.Access_Token)
 		} else {
 			fmt.Println("I'm going into the ELSE")
-			if val2, er2 := GetAccInfo(userid); er2 { //er2 is actually success if false - like an error
-				fmt.Println("I'm going into the ELSEELSE")
-				var m Card
-				client_id := insteon.Client_Id
-				long_url := "http://connect.insteon.com/api/v2/oauth2/auth?client_id=" + client_id + "&state=" + userid + "&response_type=code&redirect_uri=http://veryoblivio.us:9001/"
-				short_url := ShortenURL(long_url)
-				m.Type = "Simple"
-				m.Title = "Register your Insteon Connection"
-				m.Content = short_url
-				j.Response.Card = &m
-				k.Text = "No linked account found. Please follow the link on the card to sign into your insteon account"
-			} else {
-				fmt.Println("I'm going into the ELSEIF")
-				insteon.Access_Token = val2.Access_Token
-				insteon.PopulateAll()
-				AccDevs[userid] = insteon.DevList
-				AccScenes[userid] = insteon.SceneList
-				AccRooms[userid] = insteon.RoomList
-				Accounts[userid] = val2
-				MakeFuzzy(userid)
-				fmt.Println("Post assignment")
-				fmt.Println(insteon.Access_Token)
-				fmt.Println(Accounts)
-			}
 		}
 		switch l.Request.Intent.Name {
 		case "Lighting":
@@ -219,6 +194,9 @@ func foo(w http.ResponseWriter, r *http.Request) {
 				if slot.Name == "Device" {
 					item = slot.Value
 				}
+			}
+			if direction == "" {
+			    direction = "on"
 			}
 			n.Command = direction
 			item_type, id, location := insteon.SearchString(item)
@@ -291,47 +269,4 @@ func foo(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("charset", "UTF-8")
 	w.Write(b)
-}
-
-func GetAccInfo(amazon_id string) (account_info Acc_Info, success bool) {
-	account_info.Amazon = amazon_id
-	body, err := ioutil.ReadFile(Account_Location + amazon_id)
-	if err != nil {
-		success = false
-		return
-	}
-	fmt.Println("Got token from file for " + amazon_id)
-	account_info.Refresh = string(body)
-	account_info.Access_Token, success = insteon.Refresh_Bearer(string(body))
-	fmt.Println("Got refresh " + amazon_id + " and its " + account_info.Access_Token)
-	if Accounts == nil {
-		Accounts = make(map[string]Acc_Info)
-	}
-	Accounts[amazon_id] = account_info
-	return
-}
-
-type toShorten struct {
-	LongUrl string `json:"longUrl"`
-}
-
-func ShortenURL(long_url string) (shorturl string) {
-	u := "https://www.googleapis.com/urlshortener/v1/url" + "?key=" + secrets.Google_api_key
-	var d toShorten
-	d.LongUrl = long_url
-	data, _ := json.Marshal(d)
-	client := &http.Client{}
-	req, _ := http.NewRequest("POST", u, bytes.NewBuffer(data))
-	req.Header.Add("Content-Type", "application/json")
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Println("Errored when sending request to the server")
-		return
-	}
-	defer resp.Body.Close()
-	resp_body, _ := ioutil.ReadAll(resp.Body)
-	var i map[string]string
-	json.Unmarshal(resp_body, &i)
-	shorturl = i["id"]
-	return
 }
